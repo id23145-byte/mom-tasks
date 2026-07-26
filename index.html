@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mom's Daily Tasks</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  </style>
+</head>
+<body class="bg-pink-100 min-h-screen p-4 sm:p-8 flex justify-center items-center">
+
+  <div class="w-full max-w-md bg-white rounded-3xl shadow-xl border border-pink-200 p-6 flex flex-col h-[90vh]">
+    
+    <!-- Header -->
+    <div class="mb-6">
+      <h1 class="text-3xl font-extrabold text-slate-800">Good morning, Mom! 🩷</h1>
+      <p class="text-slate-500 font-medium mt-1" id="task-counter">Loading tasks...</p>
+    </div>
+
+    <!-- Input Section -->
+    <form id="task-form" class="flex gap-2 mb-6">
+      <input 
+        type="text" 
+        id="task-input" 
+        placeholder="Add a task (e.g. Water plants)..." 
+        class="flex-1 bg-slate-100 border-none text-slate-800 rounded-2xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-pink-400 text-base"
+        required
+      />
+      <button 
+        type="submit" 
+        class="bg-pink-500 hover:bg-pink-600 text-white font-bold px-5 py-3 rounded-2xl transition-all shadow-md active:scale-95"
+      >
+        Add
+      </button>
+    </form>
+
+    <!-- Task List -->
+    <div class="flex-1 overflow-y-auto pr-1">
+      <ul id="task-list" class="space-y-3"></ul>
+    </div>
+
+  </div>
+
+  <script>
+    const form = document.getElementById('task-form');
+    const input = document.getElementById('task-input');
+    const list = document.getElementById('task-list');
+    const counter = document.getElementById('task-counter');
+
+    let tasks = JSON.parse(localStorage.getItem('mom_tasks')) || [
+      { text: "Take morning vitamins 🟢", completed: false },
+      { text: "Water the houseplants 🌿", completed: false },
+      { text: "Call Sarah at 3 PM 📞", completed: true }
+    ];
+
+    function saveAndRender() {
+      localStorage.setItem('mom_tasks', JSON.stringify(tasks));
+      list.innerHTML = '';
+      
+      const remaining = tasks.filter(t => !t.completed).length;
+      counter.innerText = remaining === 1 ? '1 task left for today' : `${remaining} tasks left for today`;
+
+      tasks.forEach((task, index) => {
+        const li = document.createElement('li');
+        li.className = `flex items-center justify-between p-4 rounded-2xl border transition-all ${
+          task.completed ? 'bg-slate-50 border-slate-200 opacity-60' : 'bg-white border-slate-100 shadow-sm'
+        }`;
+
+        li.innerHTML = `
+          <div class="flex items-center gap-3 cursor-pointer flex-1" onclick="toggleTask(${index})">
+            <input type="checkbox" ${task.completed ? 'checked' : ''} class="w-6 h-6 accent-pink-500 rounded-lg cursor-pointer">
+            <span class="text-lg font-medium ${task.completed ? 'line-through text-slate-400' : 'text-slate-700'}">${task.text}</span>
+          </div>
+          <button onclick="deleteTask(${index})" class="text-slate-300 hover:text-red-400 font-bold px-2 py-1 transition-colors">✕</button>
+        `;
+        list.appendChild(li);
+      });
+    }
+
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      if (!input.value.trim()) return;
+      tasks.unshift({ text: input.value.trim(), completed: false });
+      input.value = '';
+      saveAndRender();
+    });
+
+    window.toggleTask = (index) => {
+      tasks[index].completed = !tasks[index].completed;
+      saveAndRender();
+    };
+
+    window.deleteTask = (index) => {
+      tasks.splice(index, 1);
+      saveAndRender();
+    };
+
+    saveAndRender();
+  </script>
+</body>
+</html>
