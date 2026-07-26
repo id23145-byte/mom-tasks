@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>Highway Racer</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+    body {
+      background-color: #121212;
+      color: #ffffff;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      overflow: hidden;
+    }
+    #game-container {
+      position: relative;
+      width: 100%;
+      max-width: 400px;
+      height: 90vh;
+      max-height: 700px;
+      background: #2c2c2c;
+      border-radius: 16px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+      overflow: hidden;
+      border: 3px solid #333;
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+    #ui-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      background: rgba(0, 0, 0, 0.85);
+      backdrop-filter: blur(4px);
+      z-index: 10;
+    }
+    h1 {
+      font-size: 2.2rem;
+      margin-bottom: 8px;
+      color: #ff3b30;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      text-shadow: 0 0 10px rgba(255, 59, 48, 0.5);
+    }
+    p {
+      font-size: 1.1rem;
+      color: #aaa;
+      margin-bottom: 24px;
+    }
+    .btn {
+      background: linear-gradient(135deg, #ff3b30, #ff9500);
+      color: white;
+      border: none;
+      padding: 14px 36px;
+      font-size: 1.2rem;
+      font-weight: bold;
+      border-radius: 30px;
+      cursor: pointer;
+      box-shadow: 0 4px 15px rgba(255, 59, 48, 0.4);
+      transition: transform 0.1s;
+    }
+    .btn:active {
+      transform: scale(0.95);
+    }
+    #hud {
+      position: absolute;
+      top: 15px;
+      left: 15px;
+      right: 15px;
+      display: flex;
+      justify-content: space-between;
+      font-size: 1.2rem;
+      font-weight: bold;
+      z-index: 5;
+      pointer-events: none;
+      text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+    }
+    .controls-hint {
+      position: absolute;
+      bottom: 15px;
+      width: 100%;
+      text-align: center;
+      font-size: 0.85rem;
+      color: rgba(255,255,255,0.6);
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="game-container">
+    <div id="hud">
+      <div>SCORE: <span id="score">0</span></div>
+      <div>SPEED: <span id="speed">100</span> MPH</div>
+    </div>
+
+    <canvas id="canvas"></canvas>
+
+    <div id="ui-overlay">
+      <h1 id="title">HIGHWAY DODGER</h1>
+      <p id="subtitle">Swipe or tap sides to steer!</p>
+      <button class="btn" id="start-btn">START RACE</button>
+    </div>
+
+    <div class="controls-hint">Tap Left / Right side or use Left / Right arrows</div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const overlay = document.getElementById('ui-overlay');
+    const startBtn = document.getElementById('start-btn');
+    const scoreEl = document.getElementById('score');
+    const speedEl = document.getElementById('speed');
+    const titleEl = document.getElementById('title');
+    const subtitleEl = document.getElementById('subtitle');
+
+    // Canvas Sizing
+    function resize() {
+      canvas.width = canvas.offsetWidth;
+      canvas.height = canvas.offsetHeight;
+    }
+    resize();
+    window.addEventListener('resize', resize);
+
+    // Game Variables
+    let gameActive = false;
+    let score = 0;
+    let gameSpeed = 6;
+    let roadOffset = 0;
+    let animationId;
+
+    const lanes = 3;
+    let currentLane = 1; // 0: Left, 1: Middle, 2: Right
+
+    const player = {
+      x: 0,
+      targetX: 0,
+      y: 0,
+      width: 45,
+      height: 80,
+      color: '#ff3b30'
+    };
+
+    let traffic = [];
+    const trafficColors = ['#34c759', '#007aff', '#af52de', '#ffcc00', '#5856d6'];
+
+    function getLaneX(laneIndex) {
+      const laneWidth = canvas.width / lanes;
+      return laneWidth * laneIndex + (laneWidth - player.width) / 2;
+    }
+
+    function initGame() {
+      score = 0;
+      gameSpeed = 6;
+      currentLane = 1;
+      traffic = [];
+      player.x = getLaneX(currentLane);
+      player.targetX = player.x;
+      player.y = canvas.height - player.height - 30;
+      scoreEl.textContent = '0';
+      speedEl.textContent = '100';
+    }
+
+    function spawnTraffic() {
+      const lane = Math.floor(Math.random() * lanes);
+      // Avoid spawning too close to existing traffic
+      const lowestY = traffic.reduce((min, t) => t.y < min ? t.y : min, canvas.height);
+      if (lowestY > 180) {
+        traffic.push({
+          x: getLaneX(lane),
+          y: -100,
+          width: player.width,
+          height: player.height,
+          speed: Math.random() * 2 + (gameSpeed - 2),
+          color: trafficColors[Math.floor(Math.random() * trafficColors.length)]
+        });
+      }
+    }
+
+    // Input Handlers
+    function moveLeft() {
+      if (currentLane > 0 && gameActive) {
+        currentLane--;
+        player.targetX = getLaneX(currentLane);
+      }
+    }
+
+    function moveRight() {
+      if (currentLane < lanes - 1 && gameActive) {
+        currentLane++;
+        player.targetX = getLaneX(currentLane);
+      }
+    }
+
+    // Keyboard
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowLeft' || e.key === 'a') moveLeft();
+      if (e.key === 'ArrowRight' || e.key === 'd') moveRight();
+    });
+
+    // Touch Controls (Tap left or right side of screen)
+    canvas.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      const touchX = e.touches[0].clientX - canvas.getBoundingClientRect().left;
+      if (touchX < canvas.width / 2) {
+        moveLeft();
+      } else {
+        moveRight();
+      }
+    });
+
+    // Game Loop
+    function update() {
+      // Smooth player lane transition
+      player.x += (player.targetX - player.x) * 0.25;
+
+      // Road animation
+      roadOffset += gameSpeed;
+      if (roadOffset >= 40) roadOffset = 0;
+
+      // Spawn traffic
+      if (Math.random() < 0.03) spawnTraffic();
+
+      // Update traffic
+      for (let i = traffic.length - 1; i >= 0; i--) {
+        const car = traffic[i];
+        car.y += car.speed;
+
+        // Collision Check
+        if (
+          player.x < car.x + car.width &&
+          player.x + player.width > car.x &&
+          player.y < car.y + car.height &&
+          player.y + player.height > car.y
+        ) {
+          gameOver();
+          return;
+        }
+
+        // Passed car
+        if (car.y > canvas.height) {
+          traffic.splice(i, 1);
+          score += 10;
+          scoreEl.textContent = score;
+
+          // Increase speed slightly over time
+          if (score % 50 === 0) {
+            gameSpeed += 0.5;
+            speedEl.textContent = Math.round(gameSpeed * 16.5);
+          }
+        }
+      }
+    }
+
+    function drawCar(x, y, width, height, color, isPlayer = false) {
+      // Body
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.roundRect(x, y, width, height, 8);
+      ctx.fill();
+
+      // Windshield
+      ctx.fillStyle = '#111';
+      ctx.fillRect(x + 5, y + (isPlayer ? 18 : height - 30), width - 10, 15);
+
+      // Roof
+      ctx.fillStyle = color;
+      ctx.fillRect(x + 3, y + (isPlayer ? 33 : height - 45), width - 6, 12);
+
+      // Headlights / Taillights
+      ctx.fillStyle = isPlayer ? '#ffcc00' : '#ff3b30';
+      ctx.fillRect(x + 4, isPlayer ? y + 2 : y + height - 6, 8, 4);
+      ctx.fillRect(x + width - 12, isPlayer ? y + 2 : y + height - 6, 8, 4);
+    }
+
+    function draw() {
+      // Clear canvas
+      ctx.fillStyle = '#3a3a3a';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Draw Lane Lines
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 4;
+      ctx.setLineDash([20, 20]);
+      ctx.lineDashOffset = -roadOffset;
+
+      const laneWidth = canvas.width / lanes;
+      for (let i = 1; i < lanes; i++) {
+        ctx.beginPath();
+        ctx.moveTo(laneWidth * i, 0);
+        ctx.lineTo(laneWidth * i, canvas.height);
+        ctx.stroke();
+      }
+
+      // Draw Player
+      drawCar(player.x, player.y, player.width, player.height, player.color, true);
+
+      // Draw Traffic
+      traffic.forEach(car => {
+        drawCar(car.x, car.y, car.width, car.height, car.color, false);
+      });
+    }
+
+    function loop() {
+      if (!gameActive) return;
+      update();
+      draw();
+      animationId = requestAnimationFrame(loop);
+    }
+
+    function startGame() {
+      initGame();
+      gameActive = true;
+      overlay.style.display = 'none';
+      loop();
+    }
+
+    function gameOver() {
+      gameActive = false;
+      cancelAnimationFrame(animationId);
+      titleEl.textContent = 'CRASH!';
+      subtitleEl.textContent = `Final Score: ${score}`;
+      startBtn.textContent = 'TRY AGAIN';
+      overlay.style.display = 'flex';
+    }
+
+    startBtn.addEventListener('click', startGame);
+  </script>
+</body>
+</html>
