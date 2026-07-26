@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>Toca Boca Custom House</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      touch-action: none;
+    }
+    body {
+      background-color: #1a1a1a;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      overflow: hidden;
+    }
+    #game-container {
+      position: relative;
+      width: 100%;
+      max-width: 420px;
+      height: 90vh;
+      max-height: 750px;
+      border-radius: 24px;
+      box-shadow: 0 12px 35px rgba(0,0,0,0.5);
+      overflow: hidden;
+      border: 4px solid #fff;
+      background: #8ecae6;
+    }
+
+    /* MAP / NEIGHBORHOOD VIEW */
+    #neighborhood-map {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 10;
+    }
+    .house-card {
+      width: 260px;
+      background: white;
+      border-radius: 24px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+      border: 4px solid #ff477e;
+    }
+    .house-icon { font-size: 5rem; margin-bottom: 10px; }
+    .house-title { font-weight: bold; color: #333; font-size: 1.4rem; margin-bottom: 15px; }
+
+    /* Customization Options */
+    .story-picker {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .story-btn {
+      background: #f0f0f0;
+      border: 2px solid #ccc;
+      padding: 8px 14px;
+      border-radius: 12px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    .story-btn.active {
+      background: #ff477e;
+      color: white;
+      border-color: #ff477e;
+    }
+    .enter-btn {
+      background: #38b000;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 20px;
+      font-size: 1.1rem;
+      font-weight: bold;
+      cursor: pointer;
+      width: 100%;
+    }
+
+    /* HOUSE INTERIOR VIEW */
+    #house-interior {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      display: none;
+      z-index: 30;
+      overflow: hidden;
+    }
+    .top-bar {
+      position: absolute;
+      top: 15px;
+      left: 15px;
+      right: 15px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 100;
+    }
+    .back-btn {
+      background: #ff477e;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    
+    /* Elevator Floor Buttons */
+    .floor-controls {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      background: rgba(255, 255, 255, 0.9);
+      padding: 6px;
+      border-radius: 16px;
+    }
+    .floor-btn {
+      background: white;
+      border: 2px solid #ddd;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    .floor-btn.active {
+      background: #ffb703;
+      border-color: #fb8500;
+      color: white;
+    }
+
+    /* Multi-Story Floors Container */
+    .floors-wrapper {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      transition: transform 0.4s ease-in-out;
+    }
+    .floor-view {
+      position: relative;
+      width: 100%;
+      height: 100%;
+    }
+    
+    /* Room Wall/Floor Designs */
+    .floor-3 { background: #ffe5ec; } /* Top Floor / Attic */
+    .floor-3 .wall { position: absolute; top: 0; width: 100%; height: 65%; background: #ffc2d1; }
+    .floor-3 .floor-tile { position: absolute; bottom: 0; width: 100%; height: 35%; background: #fb6f92; }
+
+    .floor-2 { background: #e0f7fa; } /* Middle Floor / Living */
+    .floor-2 .wall { position: absolute; top: 0; width: 100%; height: 65%; background: #b2ebf2; }
+    .floor-2 .floor-tile { position: absolute; bottom: 0; width: 100%; height: 35%; background: #4dd0e1; }
+
+    .floor-1 { background: #e8f5e9; } /* Ground Floor / Kitchen */
+    .floor-1 .wall { position: absolute; top: 0; width: 100%; height: 65%; background: #c8e6c9; }
+    .floor-1 .floor-tile { position: absolute; bottom: 0; width: 100%; height: 35%; background: #81c784; }
+
+    /* Draggable Props */
+    .draggable {
+      position: absolute;
+      cursor: grab;
+      font-size: 3rem;
+      z-index: 40;
+    }
+    .draggable:active { transform: scale(1.2); }
+
+    /* Character Base */
+    #character {
+      position: absolute;
+      bottom: 15%;
+      left: 35%;
+      width: 110px;
+      height: 180px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      z-index: 50;
+    }
+    .head {
+      position: relative;
+      width: 80px;
+      height: 80px;
+      background: #ffdfba;
+      border-radius: 50%;
+      border: 3px solid #e0ac69;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    .eyes { position: absolute; top: 30px; width: 42px; display: flex; justify-content: space-between; }
+    .eye { width: 8px; height: 8px; background: #333; border-radius: 50%; }
+    .mouth { position: absolute; bottom: 14px; width: 14px; height: 7px; background: #ff6b6b; border-radius: 0 0 10px 10px; }
+    .body { width: 55px; height: 75px; background: #ffb703; border-radius: 16px 16px 8px 8px; margin-top: -5px; border: 3px solid #fb8500; }
+  </style>
+</head>
+<body>
+
+  <div id="game-container">
+    <!-- 🗺️ HOUSE BUILDER / STORY SELECTOR -->
+    <div id="neighborhood-map">
+      <div class="house-card">
+        <div class="house-icon" id="card-icon">🏠</div>
+        <div class="house-title">Custom House</div>
+
+        <div style="font-size: 0.9rem; color: #666; margin-bottom: 8px;">CHOOSE STORIES:</div>
+        <div class="story-picker">
+          <button class="story-btn" onclick="selectStories(1)">1 Story</button>
+          <button class="story-btn active" onclick="selectStories(2)">2 Stories</button>
+          <button class="story-btn" onclick="selectStories(3)">3 Stories</button>
+        </div>
+
+        <button class="enter-btn" onclick="enterHouse()">ENTER HOUSE 🚪</button>
+      </div>
+    </div>
+
+    <!-- 🏡 INSIDE MULTI-STORY HOUSE -->
+    <div id="house-interior">
+      <div class="top-bar">
+        <button class="back-btn" onclick="leaveHouse()">🗺️ World Map</button>
+        <div class="floor-controls" id="floor-buttons"></div>
+      </div>
+
+      <div class="floors-wrapper" id="floors-wrapper">
+        <!-- Floor 3 (Attic / Bedroom) -->
+        <div class="floor-view floor-3" id="f3">
+          <div class="wall"></div>
+          <div class="floor-tile"></div>
+          <div style="position: absolute; top: 15%; left: 10%; font-size: 1.2rem; font-weight: bold; color: #ff477e;">🛏️ Top Floor</div>
+          <div class="draggable" style="top: 25%; left: 15%;">👑</div>
+          <div class="draggable" style="bottom: 20%; right: 20%;">🧸</div>
+        </div>
+
+        <!-- Floor 2 (Living Room) -->
+        <div class="floor-view floor-2" id="f2">
+          <div class="wall"></div>
+          <div class="floor-tile"></div>
+          <div style="position: absolute; top: 15%; left: 10%; font-size: 1.2rem; font-weight: bold; color: #0077b6;">🛋️ Main Living Area</div>
+          <div class="draggable" style="bottom: 20%; left: 15%;">🐶</div>
+          <div class="draggable" style="bottom: 20%; right: 20%;">📺</div>
+        </div>
+
+        <!-- Floor 1 (Kitchen / Ground) -->
+        <div class="floor-1 floor-view" id="f1">
+          <div class="wall"></div>
+          <div class="floor-tile"></div>
+          <div style="position: absolute; top: 15%; left: 10%; font-size: 1.2rem; font-weight: bold; color: #2a9d8f;">🍳 Ground Floor Kitchen</div>
+          <div class="draggable" style="bottom: 20%; right: 15%;">🍕</div>
+          <div class="draggable" style="bottom: 20%; left: 20%;">🍎</div>
+        </div>
+      </div>
+
+      <!-- Persistent Character -->
+      <div id="character">
+        <div class="head">
+          <div class="eyes"><div class="eye"></div><div class="eye"></div></div>
+          <div class="mouth"></div>
+        </div>
+        <div class="body"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let selectedStories = 2;
+    let currentFloor = 1;
+
+    function selectStories(count) {
+      selectedStories = count;
+      document.querySelectorAll('.story-btn').forEach((btn, idx) => {
+        btn.classList.toggle('active', idx + 1 === count);
+      });
+
+      // Change icon dynamically based on stories
+      const icon = document.getElementById('card-icon');
+      if (count === 1) icon.textContent = '🏡';
+      if (count === 2) icon.textContent = '🏠';
+      if (count === 3) icon.textContent = '🏰';
+    }
+
+    function enterHouse() {
+      document.getElementById('neighborhood-map').style.display = 'none';
+      document.getElementById('house-interior').style.display = 'block';
+
+      // Build Elevator Floor Buttons
+      const btnContainer = document.getElementById('floor-buttons');
+      btnContainer.innerHTML = '';
+
+      for (let i = selectedStories; i >= 1; i--) {
+        const btn = document.createElement('button');
+        btn.className = `floor-btn ${i === 1 ? 'active' : ''}`;
+        btn.textContent = `F${i}`;
+        btn.onclick = () => goToFloor(i);
+        btnContainer.appendChild(btn);
+      }
+
+      // Hide floors that aren't selected
+      document.getElementById('f3').style.display = selectedStories >= 3 ? 'block' : 'none';
+      document.getElementById('f2').style.display = selectedStories >= 2 ? 'block' : 'none';
+      document.getElementById('f1').style.display = 'block';
+
+      goToFloor(1);
+    }
+
+    function goToFloor(floorNum) {
+      currentFloor = floorNum;
+      
+      // Slide the floors container vertically
+      const wrapper = document.getElementById('floors-wrapper');
+      
+      // Calculate offset based on active floors
+      let slidePercent = 0;
+      if (selectedStories === 3) {
+        slidePercent = (3 - floorNum) * 100;
+      } else if (selectedStories === 2) {
+        slidePercent = (2 - floorNum) * 100;
+      }
+      
+      wrapper.style.transform = `translateY(-${slidePercent}%)`;
+
+      // Update active button state
+      document.querySelectorAll('.floor-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.textContent === `F${floorNum}`);
+      });
+    }
+
+    function leaveHouse() {
+      document.getElementById('house-interior').style.display = 'none';
+      document.getElementById('neighborhood-map').style.display = 'flex';
+    }
+
+    // Draggable Items Engine
+    const draggables = document.querySelectorAll('.draggable');
+    draggables.forEach(item => {
+      let active = false, currentX, currentY, initialX = 0, initialY = 0, xOffset = 0, yOffset = 0;
+
+      item.addEventListener('touchstart', e => {
+        initialX = e.touches[0].clientX - xOffset;
+        initialY = e.touches[0].clientY - yOffset;
+        active = true;
+      });
+
+      item.addEventListener('touchmove', e => {
+        if (!active) return;
+        e.preventDefault();
+        currentX = e.touches[0].clientX - initialX;
+        currentY = e.touches[0].clientY - initialY;
+        xOffset = currentX; yOffset = currentY;
+        item.style.transform = `translate3d(${currentX}px, ${currentY}px, 0)`;
+      });
+
+      item.addEventListener('touchend', () => { active = false; });
+    });
+  </script>
+</body>
+</html>
