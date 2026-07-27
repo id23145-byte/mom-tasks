@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>Dad's Protein Drift 🚗💨</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; touch-action: manipulation; }
+    body { background-color: #0f1115; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: white; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; overflow: hidden; }
+    #game-container { position: relative; width: 100%; max-width: 400px; height: 90vh; max-height: 720px; background: #1a1d24; border-radius: 24px; border: 4px solid #ff4757; box-shadow: 0 10px 30px rgba(255, 71, 87, 0.4); display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 15px; overflow: hidden; }
+    
+    .header { width: 100%; text-align: center; padding-bottom: 10px; border-bottom: 2px solid #2f3542; }
+    .header h1 { font-size: 1.2rem; color: #ff4757; letter-spacing: 1px; }
+    .score-board { font-size: 1.1rem; font-weight: bold; margin-top: 5px; color: #2ed573; }
+
+    canvas { background: #222; border-radius: 16px; border: 3px solid #2f3542; }
+
+    .controls { display: flex; gap: 15px; width: 100%; margin-top: 10px; }
+    .btn-steer { flex: 1; height: 65px; background: #2f3542; border: 2px solid #ff4757; border-radius: 18px; color: white; font-size: 1.8rem; font-weight: bold; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+    .btn-steer:active { background: #ff4757; transform: scale(0.96); }
+
+    /* CELEBRATION OVERLAY */
+    #celeb-modal { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 50; text-align: center; padding: 20px; }
+    .trophy-icon { font-size: 4rem; animation: bounce 0.6s infinite alternate; }
+    @keyframes bounce { from { transform: translateY(0); } to { transform: translateY(-12px); } }
+    .celeb-title { font-size: 1.8rem; font-weight: bold; color: #00f5d4; margin: 10px 0; }
+    .celeb-msg { font-size: 1rem; color: #dfe4ea; margin-bottom: 20px; line-height: 1.4; }
+    .btn-restart { background: #ff4757; color: white; border: none; padding: 12px 28px; font-size: 1rem; font-weight: bold; border-radius: 25px; cursor: pointer; }
+  </style>
+</head>
+<body>
+
+  <div id="game-container">
+    <div class="header">
+      <h1>🏎️ DAD'S PROTEIN DRIFT</h1>
+      <div class="score-board">Meat Collected: <span id="score-num">0</span> 🥩</div>
+    </div>
+
+    <!-- CANVAS DRIFT TRACK -->
+    <canvas id="driftCanvas" width="320" height="420"></canvas>
+
+    <!-- TOUCH CONTROLS -->
+    <div class="controls">
+      <div class="btn-steer" id="btn-left">⬅️ DRIFT</div>
+      <div class="btn-steer" id="btn-right">DRIFT ➡️</div>
+    </div>
+
+    <!-- WIN/MESSAGE MODAL -->
+    <div id="celeb-modal">
+      <div class="trophy-icon">🏆🏎️💨</div>
+      <div class="celeb-title">DRIFT KING DAD!</div>
+      <p class="celeb-msg">You delivered all the protein home to the family in record time!<br><br><b>Thank you for working hard for us every single day! ❤️</b></p>
+      <button class="btn-restart" onclick="restartGame()">Drive Again 🚀</button>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('driftCanvas');
+    const ctx = canvas.getContext('2d');
+
+    let carX = 160, carY = 340;
+    let carAngle = 0; // facing straight up
+    let speed = 3;
+    let score = 0;
+    let steering = 0; // -1 left, 1 right
+
+    let meats = [];
+    let smokeParticles = [];
+    let gameActive = true;
+
+    // Controls setup
+    const leftBtn = document.getElementById('btn-left');
+    const rightBtn = document.getElementById('btn-right');
+
+    const setSteerLeft = () => steering = -0.07;
+    const setSteerRight = () => steering = 0.07;
+    const clearSteer = () => steering = 0;
+
+    leftBtn.addEventListener('touchstart', (e) => { e.preventDefault(); setSteerLeft(); });
+    leftBtn.addEventListener('touchend', clearSteer);
+    leftBtn.addEventListener('mousedown', setSteerLeft);
+    leftBtn.addEventListener('mouseup', clearSteer);
+
+    rightBtn.addEventListener('touchstart', (e) => { e.preventDefault(); setSteerRight(); });
+    rightBtn.addEventListener('touchend', clearSteer);
+    rightBtn.addEventListener('mousedown', setSteerRight);
+    rightBtn.addEventListener('mouseup', clearSteer);
+
+    function spawnMeat() {
+      if (meats.length < 3) {
+        meats.push({
+          x: Math.random() * 240 + 40,
+          y: Math.random() * 260 + 40,
+          icon: Math.random() > 0.5 ? '🥩' : '🍗'
+        });
+      }
+    }
+
+    function gameLoop() {
+      if (!gameActive) return;
+
+      ctx.fillStyle = '#1e212b';
+      ctx.fillRect(0, 0, 320, 420);
+
+      // Draw road borders
+      ctx.strokeStyle = '#ff4757';
+      ctx.lineWidth = 6;
+      ctx.strokeRect(10, 10, 300, 400);
+
+      // Steering & Angle
+      carAngle += steering;
+
+      // Drifting Smoke
+      if (steering !== 0) {
+        smokeParticles.push({
+          x: carX,
+          y: carY,
+          size: Math.random() * 6 + 4,
+          alpha: 0.6
+        });
+      }
+
+      // Render Tire Smoke
+      smokeParticles.forEach((p, idx) => {
+        p.alpha -= 0.02;
+        ctx.fillStyle = `rgba(200, 200, 200, ${p.alpha})`;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+        if (p.alpha <= 0) smokeParticles.splice(idx, 1);
+      });
+
+      // Move Car forward in direction of angle
+      carX += Math.sin(carAngle) * speed;
+      carY -= Math.cos(carAngle) * speed;
+
+      // Bounce off boundaries
+      if (carX < 25 || carX > 295 || carY < 25 || carY > 395) {
+        carAngle += Math.PI; // flip around
+      }
+
+      // Draw Meats
+      spawnMeat();
+      ctx.font = '22px serif';
+      meats.forEach((m, idx) => {
+        ctx.fillText(m.icon, m.x - 10, m.y + 10);
+
+        // Distance Check (Catch Meat)
+        let dist = Math.hypot(carX - m.x, carY - m.y);
+        if (dist < 25) {
+          meats.splice(idx, 1);
+          score++;
+          document.getElementById('score-num').textContent = score;
+
+          if (score >= 10) {
+            gameActive = false;
+            document.getElementById('celeb-modal').style.display = 'flex';
+          }
+        }
+      });
+
+      // Draw Dad's Car 🏎️
+      ctx.save();
+      ctx.translate(carX, carY);
+      ctx.rotate(carAngle);
+      
+      // Muscle Car Body
+      ctx.fillStyle = '#ff4757';
+      ctx.fillRect(-12, -22, 24, 44);
+      ctx.fillStyle = '#111';
+      ctx.fillRect(-10, -10, 20, 20); // windshield
+      ctx.fillStyle = '#00f5d4';
+      ctx.fillRect(-10, -20, 20, 4); // front light
+
+      ctx.restore();
+
+      requestAnimationFrame(gameLoop);
+    }
+
+    function restartGame() {
+      score = 0;
+      carX = 160; carY = 340; carAngle = 0;
+      document.getElementById('score-num').textContent = '0';
+      document.getElementById('celeb-modal').style.display = 'none';
+      gameActive = true;
+      gameLoop();
+    }
+
+    gameLoop();
+  </script>
+</body>
+</html>
