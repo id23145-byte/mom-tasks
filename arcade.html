@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>Mega Mini Arcade</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; touch-action: manipulation; }
+    body { background-color: #121214; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: white; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; overflow: hidden; }
+    #arcade-container { position: relative; width: 100%; max-width: 420px; height: 90vh; max-height: 750px; background: #1e1e24; border-radius: 24px; box-shadow: 0 12px 35px rgba(0,0,0,0.6); overflow: hidden; border: 4px solid #333; display: flex; flex-direction: column; }
+    
+    .header { padding: 15px; background: #2b2b36; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #3f3f50; }
+    .header h2 { font-size: 1.2rem; color: #ff007f; }
+    .back-btn { background: #ff477e; color: white; border: none; padding: 6px 14px; border-radius: 16px; font-weight: bold; cursor: pointer; display: none; }
+
+    .screen { flex: 1; display: none; flex-direction: column; align-items: center; justify-content: center; padding: 15px; position: relative; overflow-y: auto; }
+    .screen.active { display: flex; }
+
+    .game-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; width: 100%; padding-bottom: 10px; }
+    .game-card { background: #2b2b36; border: 2px solid #3f3f50; border-radius: 16px; padding: 15px 10px; display: flex; flex-direction: column; align-items: center; cursor: pointer; transition: transform 0.2s, border-color 0.2s; }
+    .game-card:active { transform: scale(0.95); border-color: #ff007f; }
+    .game-icon { font-size: 2.5rem; margin-bottom: 6px; }
+    .game-title { font-size: 0.85rem; font-weight: bold; text-align: center; }
+
+    canvas { background: #000; border-radius: 12px; }
+
+    /* TIC TAC TOE */
+    .ttt-grid { display: grid; grid-template-columns: repeat(3, 80px); grid-template-rows: repeat(3, 80px); gap: 8px; }
+    .ttt-cell { background: #2b2b36; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 2.5rem; font-weight: bold; cursor: pointer; border: 2px solid #3f3f50; }
+
+    /* DRESS UP */
+    .doll { font-size: 5rem; position: relative; margin-bottom: 20px; }
+    .hat-on-doll { position: absolute; top: -15px; left: 10px; font-size: 3.5rem; }
+    .clothes-picker { display: flex; gap: 12px; font-size: 2.5rem; background: #2b2b36; padding: 10px; border-radius: 16px; }
+
+    /* PREDICTION */
+    .prediction-box { width: 220px; height: 120px; background: #ff007f; border-radius: 20px; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; font-weight: bold; text-align: center; padding: 15px; margin-bottom: 20px; box-shadow: 0 8px 20px rgba(255, 0, 127, 0.4); }
+    .spin-btn { background: #00f5d4; color: #000; border: none; padding: 12px 24px; font-size: 1.1rem; font-weight: bold; border-radius: 25px; cursor: pointer; }
+
+    /* NUTS & BOLTS */
+    .board { display: flex; gap: 15px; }
+    .bolt { width: 55px; height: 160px; background: #3a3a4c; border-radius: 12px; display: flex; flex-direction: column-reverse; align-items: center; padding: 8px; gap: 6px; cursor: pointer; border: 2px solid #555; }
+    .bolt.selected { border-color: #00f5d4; }
+    .nut { width: 40px; height: 22px; border-radius: 6px; }
+
+    /* BLOCK BLAST */
+    .grid-8x8 { display: grid; grid-template-columns: repeat(8, 28px); grid-template-rows: repeat(8, 28px); gap: 3px; background: #111; padding: 6px; border-radius: 8px; }
+    .cell { width: 28px; height: 28px; background: #222; border-radius: 4px; }
+    .cell.filled { background: #7b2cbf; }
+  </style>
+</head>
+<body>
+
+  <div id="arcade-container">
+    <div class="header">
+      <h2 id="app-title">🎮 Mega Arcade</h2>
+      <button class="back-btn" id="back-btn" onclick="openMenu()">Menu 🏠</button>
+    </div>
+
+    <!-- MAIN MENU -->
+    <div id="menu-screen" class="screen active">
+      <div class="game-grid">
+        <div class="game-card" onclick="launchGame('ttt')">
+          <div class="game-icon">❌</div>
+          <div class="game-title">Tic-Tac-Toe</div>
+        </div>
+        <div class="game-card" onclick="launchGame('flappy')">
+          <div class="game-icon">🐤</div>
+          <div class="game-title">Flappy Jump</div>
+        </div>
+        <div class="game-card" onclick="launchGame('colorball')">
+          <div class="game-icon">🟡</div>
+          <div class="game-title">Color Ball Switch</div>
+        </div>
+        <div class="game-card" onclick="launchGame('snake')">
+          <div class="game-icon">🐍</div>
+          <div class="game-title">Snake Classic</div>
+        </div>
+        <div class="game-card" onclick="launchGame('dressup')">
+          <div class="game-icon">👗</div>
+          <div class="game-title">Dress Up Salon</div>
+        </div>
+        <div class="game-card" onclick="launchGame('predict')">
+          <div class="game-icon">🔮</div>
+          <div class="game-title">Prediction Filter</div>
+        </div>
+        <div class="game-card" onclick="launchGame('nuts')">
+          <div class="game-icon">🔩</div>
+          <div class="game-title">Nuts & Bolts</div>
+        </div>
+        <div class="game-card" onclick="launchGame('blocks')">
+          <div class="game-icon">🧱</div>
+          <div class="game-title">Block Blast Grid</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 1. TIC TAC TOE -->
+    <div id="ttt-screen" class="screen">
+      <div class="ttt-grid" id="ttt-board"></div>
+      <p id="ttt-status" style="margin-top: 15px; font-weight: bold;">Your Turn (X)</p>
+      <button class="spin-btn" style="margin-top: 10px;" onclick="resetTTT()">Restart</button>
+    </div>
+
+    <!-- 2. FLAPPY JUMP -->
+    <div id="flappy-screen" class="screen">
+      <canvas id="flappyCanvas" width="280" height="340"></canvas>
+      <p style="margin-top: 10px; font-size: 0.85rem; color: #aaa;">Tap screen to Jump!</p>
+    </div>
+
+    <!-- 3. COLOR BALL -->
+    <div id="color-screen" class="screen">
+      <canvas id="colorCanvas" width="280" height="340"></canvas>
+      <p style="margin-top: 10px; font-size: 0.85rem; color: #aaa;">Tap screen to switch color!</p>
+    </div>
+
+    <!-- 4. SNAKE -->
+    <div id="snake-screen" class="screen">
+      <canvas id="snakeCanvas" width="280" height="280"></canvas>
+    </div>
+
+    <!-- 5. DRESS UP -->
+    <div id="dressup-screen" class="screen">
+      <div class="doll">👧<div class="hat-on-doll" id="current-hat"></div></div>
+      <div class="clothes-picker">
+        <span onclick="setHat('👑')">👑</span>
+        <span onclick="setHat('🧢')">🧢</span>
+        <span onclick="setHat('🎀')">🎀</span>
+        <span onclick="setHat('🎩')">🎩</span>
+      </div>
+    </div>
+
+    <!-- 6. PREDICTION -->
+    <div id="predict-screen" class="screen">
+      <div class="prediction-box" id="prediction-text">Tap Spin!</div>
+      <button class="spin-btn" onclick="spinPrediction()">🔮 Predict My Day</button>
+    </div>
+
+    <!-- 7. NUTS & BOLTS -->
+    <div id="nuts-screen" class="screen">
+      <div class="board">
+        <div class="bolt" id="b1" onclick="handleBoltClick(1)">
+          <div class="nut" style="background: #ff477e;"></div>
+          <div class="nut" style="background: #00f5d4;"></div>
+        </div>
+        <div class="bolt" id="b2" onclick="handleBoltClick(2)">
+          <div class="nut" style="background: #00f5d4;"></div>
+          <div class="nut" style="background: #ff477e;"></div>
+        </div>
+        <div class="bolt" id="b3" onclick="handleBoltClick(3)"></div>
+      </div>
+    </div>
+
+    <!-- 8. BLOCK BLAST -->
+    <div id="blocks-screen" class="screen">
+      <div class="grid-8x8" id="block-grid"></div>
+    </div>
+  </div>
+
+  <script>
+    const backBtn = document.getElementById('back-btn');
+    const appTitle = document.getElementById('app-title');
+    let activeInterval = null;
+
+    function openMenu() {
+      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+      document.getElementById('menu-screen').classList.add('active');
+      backBtn.style.display = 'none';
+      appTitle.textContent = '🎮 Mega Arcade';
+      if (activeInterval) clearInterval(activeInterval);
+    }
+
+    function launchGame(game) {
+      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+      backBtn.style.display = 'block';
+      if (activeInterval) clearInterval(activeInterval);
+
+      if (game === 'ttt') {
+        document.getElementById('ttt-screen').classList.add('active');
+        appTitle.textContent = '❌ Tic-Tac-Toe';
+        resetTTT();
+      } else if (game === 'flappy') {
+        document.getElementById('flappy-screen').classList.add('active');
+        appTitle.textContent = '🐤 Flappy Jump';
+        startFlappy();
+      } else if (game === 'colorball') {
+        document.getElementById('color-screen').classList.add('active');
+        appTitle.textContent = '🟡 Color Ball Switch';
+        startColorBall();
+      } else if (game === 'snake') {
+        document.getElementById('snake-screen').classList.add('active');
+        appTitle.textContent = '🐍 Snake';
+        startSnake();
+      } else if (game === 'dressup') {
+        document.getElementById('dressup-screen').classList.add('active');
+        appTitle.textContent = '👗 Dress Up';
+      } else if (game === 'predict') {
+        document.getElementById('predict-screen').classList.add('active');
+        appTitle.textContent = '🔮 Predictions';
+      } else if (game === 'nuts') {
+        document.getElementById('nuts-screen').classList.add('active');
+        appTitle.textContent = '🔩 Nuts & Bolts';
+      } else if (game === 'blocks') {
+        document.getElementById('blocks-screen').classList.add('active');
+        appTitle.textContent = '🧱 Block Blast';
+        initBlockGrid();
+      }
+    }
+
+    /* 1. TIC TAC TOE ENGINE */
+    let tttBoard = ['', '', '', '', '', '', '', '', ''];
+    function resetTTT() {
+      tttBoard = ['', '', '', '', '', '', '', '', ''];
+      const boardEl = document.getElementById('ttt-board');
+      boardEl.innerHTML = '';
+      document.getElementById('ttt-status').textContent = 'Your Turn (X)';
+      for (let i = 0; i < 9; i++) {
+        const cell = document.createElement('div');
+        cell.className = 'ttt-cell';
+        cell.onclick = () => playTTT(i);
+        boardEl.appendChild(cell);
+      }
+    }
+    function playTTT(i) {
+      if (tttBoard[i] !== '') return;
+      tttBoard[i] = 'X';
+      updateTTTUI();
+      if (checkTTTWin('X')) { document.getElementById('ttt-status').textContent = ' You Win!'; return; }
+      
+      // AI Move
+      let emptyIndices = tttBoard.map((v, idx) => v === '' ? idx : null).filter(v => v !== null);
+      if (emptyIndices.length > 0) {
+        let aiMove = emptyIndices[Math.floor(Math.random() * emptyIndices.length)];
+        tttBoard[aiMove] = 'O';
+        updateTTTUI();
+        if (checkTTTWin('O')) { document.getElementById('ttt-status').textContent = '🤖 AI Wins!'; }
+      }
+    }
+    function updateTTTUI() {
+      const cells = document.querySelectorAll('.ttt-cell');
+      cells.forEach((cell, i) => cell.textContent = tttBoard[i]);
+    }
+    function checkTTTWin(p) {
+      const wins = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+      return wins.some(w => w.every(idx => tttBoard[idx] === p));
+    }
+
+    /* 2. FLAPPY JUMP ENGINE */
+    function startFlappy() {
+      const cvs = document.getElementById('flappyCanvas');
+      const ctx = cvs.getContext('2d');
+      let birdY = 150, velocity = 0, pipes = [], score = 0;
+      
+      cvs.onclick = () => velocity = -6;
+
+      activeInterval = setInterval(() => {
+        velocity += 0.4;
+        birdY += velocity;
+
+        if (Math.random() < 0.03) {
+          pipes.push({ x: 280, top: Math.random() * 150 + 20 });
+        }
+
+        ctx.fillStyle = '#70c5ce'; ctx.fillRect(0, 0, 280, 340);
+        
+        // Draw Bird
+        ctx.fillStyle = '#ffb703'; ctx.beginPath(); ctx.arc(60, birdY, 12, 0, Math.PI*2); ctx.fill();
+
+        // Draw Pipes
+        ctx.fillStyle = '#38b000';
+        pipes.forEach((p, idx) => {
+          p.x -= 2;
+          ctx.fillRect(p.x, 0, 35, p.top);
+          ctx.fillRect(p.x, p.top + 90, 35, 340);
+
+          if (p.x < -35) pipes.splice(idx, 1);
+          if (60 > p.x && 60 < p.x + 35 && (birdY < p.top || birdY > p.top + 90)) {
+            clearInterval(activeInterval);
+            alert('Game Over! Score: ' + score);
+            startFlappy();
+          }
+        });
+
+        score++;
+      }, 20);
+    }
+
+    /* 3. COLOR BALL SWITCH ENGINE */
+    function startColorBall() {
+      const cvs = document.getElementById('colorCanvas');
+      const ctx = cvs.getContext('2d');
+      const colors = ['#ff007f', '#00f5d4'];
+      let ballColor = 0, drops = [], score = 0;
+
+      cvs.onclick = () => ballColor = (ballColor + 1) % 2;
+
+      activeInterval = setInterval(() => {
+        if (Math.random() < 0.04) {
+          drops.push({ y: 0, color: Math.floor(Math.random() * 2) });
+        }
+
+        ctx.fillStyle = '#111'; ctx.fillRect(0, 0, 280, 340);
+
+        // Player Ball
+        ctx.fillStyle = colors[ballColor];
+        ctx.beginPath(); ctx.arc(140, 280, 20, 0, Math.PI*2); ctx.fill();
+
+        // Falling Drops
+        drops.forEach((d, idx) => {
+          d.y += 3;
+          ctx.fillStyle = colors[d.color];
+          ctx.beginPath(); ctx.arc(140, d.y, 12, 0, Math.PI*2); ctx.fill();
+
+          if (d.y > 260 && d.y < 300) {
+            if (d.color === ballColor) {
+              score++;
+              drops.splice(idx, 1);
+            } else {
+              clearInterval(activeInterval);
+              alert('Wrong Color Match! Score: ' + score);
+              startColorBall();
+            }
+          }
+        });
+      }, 20);
+    }
+
+    /* 4. SNAKE ENGINE */
+    function startSnake() {
+      const canvas = document.getElementById('snakeCanvas');
+      const ctx = canvas.getContext('2d');
+      let snake = [{x: 7, y: 7}], food = {x: 3, y: 3}, dx = 1, dy = 0;
+
+      activeInterval = setInterval(() => {
+        const head = {x: snake[0].x + dx, y: snake[0].y + dy};
+        snake.unshift(head);
+        if (head.x === food.x && head.y === food.y) {
+          food = {x: Math.floor(Math.random()*14), y: Math.floor(Math.random()*14)};
+        } else snake.pop();
+
+        ctx.fillStyle = 'black'; ctx.fillRect(0, 0, 280, 280);
+        ctx.fillStyle = '#00f5d4'; snake.forEach(p => ctx.fillRect(p.x*20, p.y*20, 18, 18));
+        ctx.fillStyle = '#ff007f'; ctx.fillRect(food.x*20, food.y*20, 18, 18);
+      }, 200);
+    }
+
+    /* OTHER GAMES ENGINE */
+    function setHat(emoji) { document.getElementById('current-hat').textContent = emoji; }
+    
+    const predictions = ["✨ 100 years of good luck!", "🍕 Pizza night today!", "👑 You are secretly royal!", "🐶 A puppy will smile at you!"];
+    function spinPrediction() {
+      const box = document.getElementById('prediction-text');
+      box.textContent = "Spinning...";
+      setTimeout(() => { box.textContent = predictions[Math.floor(Math.random() * predictions.length)]; }, 800);
+    }
+
+    let selectedBolt = null;
+    function handleBoltClick(id) {
+      const bolt = document.getElementById(`b${id}`);
+      if (!selectedBolt) {
+        if (bolt.children.length > 0) { selectedBolt = bolt; bolt.classList.add('selected'); }
+      } else {
+        if (selectedBolt !== bolt && bolt.children.length < 3) { bolt.appendChild(selectedBolt.lastElementChild); }
+        selectedBolt.classList.remove('selected'); selectedBolt = null;
+      }
+    }
+
+    function initBlockGrid() {
+      const grid = document.getElementById('block-grid');
+      grid.innerHTML = '';
+      for (let i = 0; i < 64; i++) {
+        const cell = document.createElement('div');
+        cell.className = 'cell';
+        cell.onclick = () => cell.classList.toggle('filled');
+        grid.appendChild(cell);
+      }
+    }
+  </script>
+</body>
+</html>
