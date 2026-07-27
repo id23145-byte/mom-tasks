@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>Pilot Simulator ✈️</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; touch-action: manipulation; }
+    body { background: #0b0f19; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: white; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; overflow: hidden; }
+    
+    #sim-container { position: relative; width: 100%; max-width: 420px; height: 90vh; max-height: 750px; background: #151922; border-radius: 24px; border: 4px solid #00d2ff; box-shadow: 0 0 30px rgba(0, 210, 255, 0.3); display: flex; flex-direction: column; overflow: hidden; }
+    
+    .hud-header { padding: 12px 18px; background: #1c2230; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #2a3346; font-family: monospace; }
+    .hud-stat { font-size: 0.9rem; color: #00f5d4; }
+    .hud-stat span { color: #fff; font-weight: bold; }
+
+    canvas { background: #87ceeb; width: 100%; flex: 1; }
+
+    /* COCKPIT CONTROLS */
+    .cockpit { background: #1c2230; padding: 15px; border-top: 3px solid #2a3346; display: flex; flex-direction: column; gap: 10px; }
+    .control-row { display: flex; gap: 10px; justify-content: space-between; align-items: center; }
+    
+    .btn-yoke { flex: 1; height: 50px; background: #2a3346; border: 2px solid #00d2ff; border-radius: 12px; color: white; font-size: 1.2rem; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+    .btn-yoke:active { background: #00d2ff; color: #000; }
+
+    .throttle-box { display: flex; align-items: center; gap: 8px; font-size: 0.8rem; font-family: monospace; color: #aaa; }
+    .slider { width: 100px; accent-color: #ff007f; }
+
+    /* VICTORY / CRASH OVERLAY */
+    #status-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 100; text-align: center; padding: 20px; }
+    .status-title { font-size: 2rem; font-weight: bold; margin-bottom: 10px; }
+    .btn-action { background: #00f5d4; color: #000; border: none; padding: 12px 24px; font-size: 1rem; font-weight: bold; border-radius: 20px; cursor: pointer; margin-top: 15px; }
+  </style>
+</head>
+<body>
+
+  <div id="sim-container">
+    <!-- INSTRUMENT PANEL (HUD) -->
+    <div class="hud-header">
+      <div class="hud-stat">ALT: <span id="alt-val">1000</span> ft</div>
+      <div class="hud-stat">SPD: <span id="spd-val">120</span> kts</div>
+      <div class="hud-stat">SCORE: <span id="score-val">0</span></div>
+    </div>
+
+    <!-- FLIGHT VIEW -->
+    <canvas id="flightCanvas" width="360" height="380"></canvas>
+
+    <!-- COCKPIT FLIGHT CONTROLS -->
+    <div class="cockpit">
+      <div class="control-row">
+        <div class="throttle-box">
+          PWR
+          <input type="range" min="50" max="200" value="120" class="slider" id="throttle">
+        </div>
+        <button class="btn-yoke" id="btn-up">⬆️ PITCH UP</button>
+      </div>
+      <div class="control-row">
+        <button class="btn-yoke" id="btn-left">⬅️ BANK L</button>
+        <button class="btn-yoke" id="btn-down">⬇️ PITCH DOWN</button>
+        <button class="btn-yoke" id="btn-right">BANK R ➡️</button>
+      </div>
+    </div>
+
+    <!-- MISSION OVERLAY -->
+    <div id="status-overlay">
+      <div class="status-title" id="status-text">TOUCHDOWN! 🛬</div>
+      <p id="status-desc" style="color: #ccc;">Perfect landing at the airport runway!</p>
+      <button class="btn-action" onclick="restartFlight()">Fly Again ✈️</button>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('flightCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // Flight variables
+    let altitude = 1000;
+    let speed = 120;
+    let heading = 0; // Left / Right roll
+    let pitch = 0;   // Up / Down tilt
+    let planeX = 180, planeY = 190;
+    let score = 0;
+    let isFlying = true;
+
+    // Objects in sky
+    let rings = [];
+    let clouds = [];
+    let runwayY = -1000; // Distance to runway
+
+    function initSky() {
+      rings = [];
+      clouds = [];
+      for(let i=0; i<4; i++) {
+        rings.push({ x: Math.random()*200 + 80, y: -i*200 - 100, r: 28 });
+      }
+      for(let i=0; i<6; i++) {
+        clouds.push({ x: Math.random()*300, y: Math.random()*400, size: Math.random()*30 + 20 });
+      }
+      runwayY = -1200;
+    }
+
+    // Control listeners
+    const throttleInput = document.getElementById('throttle');
+    
+    document.getElementById('btn-up').onclick = () => { pitch = Math.min(pitch + 2, 10); };
+    document.getElementById('btn-down').onclick = () => { pitch = Math.max(pitch - 2, -10); };
+    document.getElementById('btn-left').onclick = () => { heading = Math.max(heading - 3, -15); };
+    document.getElementById('btn-right').onclick = () => { heading = Math.min(heading + 3, 15); };
+
+    function gameLoop() {
+      if (!isFlying) return;
+
+      speed = parseInt(throttleInput.value);
+      document.getElementById('spd-val').textContent = speed;
+
+      // Adjust altitude based on pitch and speed
+      altitude += Math.floor(pitch * (speed / 100));
+      altitude = Math.max(0, altitude);
+      document.getElementById('alt-val').textContent = altitude;
+
+      planeX += heading * 0.3;
+      planeX = Math.max(40, Math.min(320, planeX));
+
+      // Draw Sky & Horizon
+      let horizon = 190 + pitch * 8;
+      let skyGradient = ctx.createLinearGradient(0, 0, 0, horizon);
+      skyGradient.addColorStop(0, '#1e3c72');
+      skyGradient.addColorStop(1, '#87ceeb');
+      ctx.fillStyle = skyGradient;
+      ctx.fillRect(0, 0, 360, horizon);
+
+      // Draw Ground
+      ctx.fillStyle = '#2d5a27';
+      ctx.fillRect(0, horizon, 360, 380 - horizon);
+
+      // Render Clouds
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+      clouds.forEach(c => {
+        c.y += (speed / 30) - pitch;
+        c.x -= heading * 0.5;
+        if (c.y > 400) c.y = -50;
+        ctx.beginPath();
+        ctx.arc(c.x, c.y, c.size, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      // Render Target Rings
+      rings.forEach((r, idx) => {
+        r.y += (speed / 20) - pitch;
+        r.x -= heading * 0.5;
+
+        // Draw 3D style Ring
+        ctx.strokeStyle = '#ff007f';
+        ctx.lineWidth = 5;
+        ctx.beginPath();
+        ctx.arc(r.x, r.y, r.r, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Ring Check
+        if (Math.abs(r.y - planeY) < 15 && Math.abs(r.x - planeX) < 30) {
+          score += 100;
+          document.getElementById('score-val').textContent = score;
+          rings.splice(idx, 1);
+          rings.push({ x: Math.random()*200 + 80, y: -300, r: 28 });
+        }
+      });
+
+      // Advance to Runway
+      runwayY += speed / 15;
+      if (runwayY > 0 && runwayY < 380) {
+        // Draw Runway
+        ctx.fillStyle = '#333';
+        ctx.beginPath();
+        ctx.moveTo(140 - heading*2, runwayY);
+        ctx.lineTo(220 - heading*2, runwayY);
+        ctx.lineTo(280 - heading*5, runwayY + 120);
+        ctx.lineTo(80 - heading*5, runwayY + 120);
+        ctx.fill();
+      }
+
+      // Check Crash or Landing
+      if (altitude <= 0) {
+        isFlying = false;
+        if (Math.abs(pitch) < 3 && speed < 130) {
+          showEndModal('SUCCESSFUL LANDING! 🛬', 'Great job pilot! You brought the plane down safely.', '#00f5d4');
+        } else {
+          showEndModal('PLANE CRASHED! 💥', 'You descended too fast or too steep. Watch your pitch and speed!', '#ff4757');
+        }
+      }
+
+      // Draw Airplane Crosshair / Horizon Bar
+      ctx.save();
+      ctx.translate(planeX, planeY);
+      ctx.rotate((heading * Math.PI) / 180);
+
+      // Cockpit Wings / Attitude Indicator
+      ctx.strokeStyle = '#00f5d4';
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(-40, 0); ctx.lineTo(-15, 0); ctx.lineTo(-10, 10);
+      ctx.moveTo(40, 0); ctx.lineTo(15, 0); ctx.lineTo(10, 10);
+      ctx.moveTo(-5, 0); ctx.lineTo(5, 0);
+      ctx.stroke();
+
+      ctx.restore();
+
+      requestAnimationFrame(gameLoop);
+    }
+
+    function showEndModal(title, desc, color) {
+      const modal = document.getElementById('status-overlay');
+      const titleEl = document.getElementById('status-text');
+      titleEl.textContent = title;
+      titleEl.style.color = color;
+      document.getElementById('status-desc').textContent = desc;
+      modal.style.display = 'flex';
+    }
+
+    function restartFlight() {
+      altitude = 1000;
+      speed = 120;
+      pitch = 0; heading = 0;
+      score = 0;
+      document.getElementById('score-val').textContent = '0';
+      document.getElementById('status-overlay').style.display = 'none';
+      isFlying = true;
+      initSky();
+      gameLoop();
+    }
+
+    initSky();
+    gameLoop();
+  </script>
+</body>
+</html>
