@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Deen Journey</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card-bg: #1e293b;
+      --accent: #10b981;
+      --accent-hover: #059669;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --border: #334155;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
+    body { background: var(--bg); color: var(--text); padding: 1.5rem; max-width: 500px; margin: 0 auto; min-height: 100vh; }
+    
+    header { text-align: center; margin-bottom: 2rem; }
+    h1 { color: var(--accent); font-size: 1.8rem; margin-bottom: 0.25rem; }
+    .subtitle { color: var(--text-muted); font-size: 0.9rem; }
+
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 1rem;
+      padding: 1.25rem;
+      margin-bottom: 1.5rem;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    }
+
+    h2 { font-size: 1.1rem; margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: center; }
+
+    /* Prayer Grid */
+    .prayer-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(70px, 1fr)); gap: 0.5rem; }
+    .prayer-item {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border);
+      padding: 0.75rem 0.5rem;
+      border-radius: 0.5rem;
+      text-align: center;
+    }
+    .prayer-name { font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; }
+    .prayer-time { font-size: 0.95rem; font-weight: bold; margin-top: 0.25rem; color: var(--accent); }
+
+    /* Tasbih Counter */
+    .tasbih-container { text-align: center; padding: 1rem 0; }
+    .tasbih-count { font-size: 4rem; font-weight: bold; color: var(--accent); margin: 0.5rem 0; }
+    .tasbih-phrase { color: var(--text-muted); font-size: 1.1rem; margin-bottom: 1rem; }
+    .btn-counter {
+      width: 100%;
+      height: 100px;
+      background: var(--accent);
+      color: white;
+      border: none;
+      border-radius: 1rem;
+      font-size: 1.5rem;
+      font-weight: bold;
+      cursor: pointer;
+      transition: transform 0.1s, background-color 0.2s;
+      user-select: none;
+    }
+    .btn-counter:active { transform: scale(0.98); background: var(--accent-hover); }
+    .btn-reset {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      padding: 0.4rem 0.8rem;
+      border-radius: 0.5rem;
+      font-size: 0.8rem;
+      cursor: pointer;
+    }
+
+    /* Checklist */
+    .checklist { list-style: none; }
+    .check-item {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.75rem 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .check-item:last-child { border-bottom: none; }
+    .check-item input[type="checkbox"] { width: 1.2rem; height: 1.2rem; accent-color: var(--accent); cursor: pointer; }
+    .check-item label { cursor: pointer; font-size: 0.95rem; flex-grow: 1; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>My Deen</h1>
+    <p class="subtitle" id="hijri-date">Loading Hijri Date...</p>
+  </header>
+
+  <!-- Prayer Times Section -->
+  <section class="card">
+    <h2>Today's Prayers <span style="font-size: 0.8rem; font-weight: normal; color: var(--text-muted);" id="location-name">Detecting...</span></h2>
+    <div class="prayer-grid" id="prayer-grid">
+      <div class="prayer-item"><div class="prayer-name">Fajr</div><div class="prayer-time">--:--</div></div>
+      <div class="prayer-item"><div class="prayer-name">Dhuhr</div><div class="prayer-time">--:--</div></div>
+      <div class="prayer-item"><div class="prayer-name">Asr</div><div class="prayer-time">--:--</div></div>
+      <div class="prayer-item"><div class="prayer-name">Maghrib</div><div class="prayer-time">--:--</div></div>
+      <div class="prayer-item"><div class="prayer-name">Isha</div><div class="prayer-time">--:--</div></div>
+    </div>
+  </section>
+
+  <!-- Digital Tasbih Section -->
+  <section class="card">
+    <h2>
+      Digital Tasbih
+      <button class="btn-reset" onclick="resetTasbih()">Reset</button>
+    </h2>
+    <div class="tasbih-container">
+      <div class="tasbih-phrase" id="tasbih-phrase">SubhanAllah (سبحان الله)</div>
+      <div class="tasbih-count" id="tasbih-count">0</div>
+      <button class="btn-counter" id="tasbih-btn" onclick="incrementTasbih()">TAP TO COUNT</button>
+    </div>
+  </section>
+
+  <!-- Daily Habits Section -->
+  <section class="card">
+    <h2>Daily Habits</h2>
+    <ul class="checklist" id="checklist">
+      <li class="check-item"><input type="checkbox" id="h1" onchange="saveHabits()"><label for="h1">Read 1 Page of Quran</label></li>
+      <li class="check-item"><input type="checkbox" id="h2" onchange="saveHabits()"><label for="h2">Morning / Evening Adhkar</label></li>
+      <li class="check-item"><input type="checkbox" id="h3" onchange="saveHabits()"><label for="h3">Duha Prayer</label></li>
+      <li class="check-item"><input type="checkbox" id="h4" onchange="saveHabits()"><label for="h4">Read Surah Al-Mulk before sleep</label></li>
+    </ul>
+  </section>
+
+  <script>
+    // --- 1. TASBIH LOGIC WITH HAPTICS & LOCAL STORAGE ---
+    let count = parseInt(localStorage.getItem('tasbih_count') || '0');
+    const phrases = ["SubhanAllah (سبحان الله)", "Alhamdulillah (الحمد لله)", "Allahu Akbar (الله أكبر)"];
+    
+    function updateTasbihUI() {
+      document.getElementById('tasbih-count').innerText = count;
+      const phraseIndex = Math.floor((count / 33) % phrases.length);
+      document.getElementById('tasbih-phrase').innerText = phrases[phraseIndex];
+    }
+
+    function incrementTasbih() {
+      count++;
+      localStorage.setItem('tasbih_count', count);
+      updateTasbihUI();
+      
+      // Haptic feedback for mobile devices
+      if (navigator.vibrate) {
+        if (count % 33 === 0) {
+          navigator.vibrate([100, 50, 100]); // Strong double vibration on 33 target
+        } else {
+          navigator.vibrate(30); // Gentle tap
+        }
+      }
+    }
+
+    function resetTasbih() {
+      count = 0;
+      localStorage.setItem('tasbih_count', count);
+      updateTasbihUI();
+    }
+
+    // --- 2. DAILY HABITS LOGIC ---
+    function saveHabits() {
+      const habits = ['h1', 'h2', 'h3', 'h4'].map(id => ({
+        id, checked: document.getElementById(id).checked
+      }));
+      localStorage.setItem('daily_habits', JSON.stringify(habits));
+    }
+
+    function loadHabits() {
+      const saved = JSON.parse(localStorage.getItem('daily_habits') || '[]');
+      saved.forEach(item => {
+        const el = document.getElementById(item.id);
+        if (el) el.checked = item.checked;
+      });
+    }
+
+    // --- 3. PRAYER TIMES FETCH (AlAdhan API) ---
+    async function fetchPrayerTimes() {
+      if ('geolocation' in navigator) {
+        navigator.geolocation.getCurrentPosition(async (pos) => {
+          const { latitude, longitude } = pos.coords;
+          try {
+            const res = await fetch(`https://api.aladhan.com/v1/timings?latitude=${latitude}&longitude=${longitude}&method=2`);
+            const data = await res.json();
+            const timings = data.data.timings;
+            const dateInfo = data.data.date;
+
+            document.getElementById('hijri-date').innerText = `${dateInfo.hijri.day} ${dateInfo.hijri.month.en} ${dateInfo.hijri.year} AH`;
+            document.getElementById('location-name').innerText = 'Location Detected';
+
+            const container = document.getElementById('prayer-grid');
+            const mainPrayers = ['Fajr', 'Dhuhr', 'Asr', 'Maghrib', 'Isha'];
+            
+            container.innerHTML = mainPrayers.map(name => `
+              <div class="prayer-item">
+                <div class="prayer-name">${name}</div>
+                <div class="prayer-time">${timings[name]}</div>
+              </div>
+            `).join('');
+          } catch (e) {
+            document.getElementById('location-name').innerText = 'Offline / Error';
+          }
+        }, () => {
+          document.getElementById('location-name').innerText = 'Permission Denied';
+        });
+      }
+    }
+
+    // Initialize App
+    updateTasbihUI();
+    loadHabits();
+    fetchPrayerTimes();
+  </script>
+</body>
+</html>
